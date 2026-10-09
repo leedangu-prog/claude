@@ -91,22 +91,58 @@
   }
 
   .card {
-    width: 42px; height: 58px;
-    background: #fff;
-    color: #111;
-    border-radius: 6px;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    font-weight: bold; font-size: 17px; line-height: 1.05;
-    box-shadow: 0 2px 4px rgba(0,0,0,.4);
+    position: relative;
+    width: 48px; height: 68px;
+    background: linear-gradient(160deg, #ffffff 0%, #f3f0e8 100%);
+    color: #1b1b1b;
+    border-radius: 7px;
+    border: 1px solid #d8d2c4;
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: bold;
+    box-shadow: 0 3px 6px rgba(0,0,0,.45);
+    flex-shrink: 0;
   }
+  .card .corner {
+    position: absolute;
+    display: flex; flex-direction: column; align-items: center;
+    font-size: 13px; line-height: 1;
+  }
+  .card .corner.tl { top: 4px; left: 4px; }
+  .card .corner.br { bottom: 4px; right: 4px; transform: rotate(180deg); }
+  .card .corner small { font-size: 11px; }
+  .card .pip {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+  }
+  .card .pip.face { font-size: 28px; text-shadow: 1px 1px 0 rgba(242,193,78,.8); }
   .card.red { color: var(--red); }
   .card.back {
-    background: repeating-linear-gradient(45deg, #2a4d9b, #2a4d9b 5px, #1d3a7a 5px, #1d3a7a 10px);
-    border: 2px solid #fff;
+    background:
+      radial-gradient(circle at center, rgba(255,255,255,.18) 0 18%, transparent 19%),
+      repeating-linear-gradient(45deg, #8e1f2f 0 4px, #6e1624 4px 8px);
+    border: 3px solid #fff;
+    box-shadow: inset 0 0 0 2px #8e1f2f, 0 3px 6px rgba(0,0,0,.45);
   }
-  .card.big { width: 50px; height: 70px; font-size: 20px; }
-  .card.hl { outline: 3px solid #6fe28c; }
+  .card.big { width: 58px; height: 82px; }
+  .card.big .corner { font-size: 15px; }
+  .card.big .pip { font-size: 32px; }
+  .card.big .pip.face { font-size: 34px; }
+  .card.hl { box-shadow: 0 0 0 3px #6fe28c, 0 0 14px rgba(111,226,140,.9); transform: translateY(-4px); }
+  .card.deal { animation: deal .35s ease-out; }
+  .card.flip { animation: flip .45s ease-out; }
+  @keyframes deal {
+    from { transform: translateY(-40px) scale(.6) rotate(-12deg); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+  @keyframes flip {
+    0%   { transform: rotateY(90deg); }
+    100% { transform: rotateY(0); }
+  }
+  .sound-btn {
+    position: fixed; top: 12px; right: 12px;
+    background: rgba(0,0,0,.4); font-size: 18px; padding: 6px 10px;
+  }
 
   .seat-0 { top: 88%; left: 50%; }
   .seat-1 { top: 50%; left: 9%; }
@@ -151,21 +187,30 @@
   }
 
   @media (max-width: 600px) {
-    .table { border-width: 8px; border-radius: 90px; aspect-ratio: 3 / 4; }
+    .table { border-width: 8px; border-radius: 90px; aspect-ratio: 3 / 4.4; }
     .seat { width: 110px; }
-    .card { width: 32px; height: 46px; font-size: 13px; }
-    .card.big { width: 38px; height: 54px; font-size: 16px; }
+    .card { width: 36px; height: 52px; }
+    .card .corner { font-size: 11px; }
+    .card .corner small { font-size: 9px; }
+    .card .pip { font-size: 18px; }
+    .card .pip.face { font-size: 20px; }
+    .card.big { width: 44px; height: 62px; }
+    .card.big .corner { font-size: 12px; }
+    .card.big .pip { font-size: 24px; }
+    .card.big .pip.face { font-size: 24px; }
     .hand { min-height: 46px; }
-    .seat-1 { left: 16%; }
-    .seat-3 { left: 84%; }
+    .seat-1 { left: 16%; top: 28%; }
+    .seat-3 { left: 84%; top: 28%; }
+    .center { top: 55%; }
     .seat-2 { top: 12%; }
-    .seat-0 { top: 83%; }
+    .seat-0 { top: 85%; }
     .message { margin-top: 20px; }
   }
 </style>
 </head>
 <body>
   <h1>♠ 텍사스 홀덤 ♥</h1>
+  <button class="sound-btn" id="btnSound" title="소리 켜기/끄기">🔊</button>
 
   <div class="table" id="table">
     <div class="center">
@@ -330,6 +375,8 @@ function startHand() {
   deck = newDeck();
   board = [];
   winners = [];
+  shownBack.clear();
+  shownFace.clear();
   handOver = false;
   players.forEach(p => Object.assign(p, { hand: [], folded: false, allIn: false,
                                           bet: 0, total: 0, acted: false, lastAction: '' }));
@@ -341,6 +388,7 @@ function startHand() {
   const bb = nextSeat(sb, live);
 
   players.forEach(p => { if (!p.out) p.hand = [deck.pop(), deck.pop()]; });
+  for (let k = 0; k < activeSeats().length * 2; k++) play('deal', k * 0.07);
 
   stage = 'preflop';
   putChips(players[sb], SMALL_BLIND); players[sb].lastAction = `스몰 블라인드 ${players[sb].bet}`;
@@ -374,6 +422,7 @@ function advance() {
   render();
   if (players[toAct].isHuman) {
     setMessage('당신 차례예요!');
+    play('turn');
     const slider = document.getElementById('raiseSlider');
     slider.value = slider.min;   // 레이즈 금액은 최소값부터
     document.getElementById('raiseValue').textContent = slider.value;
@@ -393,6 +442,7 @@ function nextStage() {
   else { stage = 'showdown'; return finishHand(); }
 
   log(`[${STAGE_NAMES[stage]}] ${board.map(cardText).join(' ')}`);
+  (stage === 'flop' ? [0, 0.1, 0.2] : [0]).forEach(d => play('deal', d));
   toAct = dealer;   // 딜러 다음 사람부터
   advance();
 }
@@ -419,12 +469,20 @@ function act(i, action, raiseTo) {
     p.lastAction = p.allIn ? `올인 ${p.bet}` : (before === 0 ? `벳 ${p.bet}` : `레이즈 ${p.bet}`);
   }
   if (p.allIn && !p.lastAction.startsWith('올인') && action !== 'fold') p.lastAction += ' (올인)';
+  if (action === 'fold') play('fold');
+  else if (p.allIn) play('allin');
+  else if (p.lastAction === '체크') play('check');
+  else play('chip');
   p.acted = true;
   log(`${p.name}: ${p.lastAction}`);
   advance();
 }
 
 function finishHand() {
+  setTimeout(() => {
+    if (winners.includes(players[0])) play('win');
+    else if (!players[0].folded) play('lose');
+  }, 300);
   handOver = true;
   toAct = -1;
   const alive = inHand();
@@ -520,13 +578,88 @@ function botAct(i) {
   return act(i, 'fold');
 }
 
+// ===== 효과음 (Web Audio로 직접 합성, 파일 필요 없음) =====
+let audioCtx = null;
+let soundOn = true;
+
+function ac() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function tone(freq, start, dur, type = 'sine', vol = 0.2, endFreq) {
+  const ctx = ac();
+  const t = ctx.currentTime + start;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(g).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + dur);
+}
+
+function noise(start, dur, vol = 0.25, freq = 3000) {
+  const ctx = ac();
+  const t = ctx.currentTime + start;
+  const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = freq;
+  const g = ctx.createGain();
+  g.gain.value = vol;
+  src.connect(filter).connect(g).connect(ctx.destination);
+  src.start(t);
+}
+
+const SOUNDS = {
+  deal:  (d = 0) => noise(d, 0.08, 0.35, 2500),                          // 카드 스윽
+  chip:  () => { tone(2200, 0, 0.08, 'triangle', 0.15); tone(2900, 0.05, 0.1, 'triangle', 0.12); },
+  allin: () => { for (let k = 0; k < 6; k++) tone(1800 + Math.random() * 1200, k * 0.05, 0.1, 'triangle', 0.12); },
+  check: () => { tone(160, 0, 0.08, 'sine', 0.5); tone(160, 0.12, 0.08, 'sine', 0.5); },   // 똑똑
+  fold:  () => noise(0, 0.25, 0.2, 900),
+  turn:  () => { tone(880, 0, 0.25, 'sine', 0.15); tone(1320, 0.12, 0.3, 'sine', 0.1); },
+  win:   () => [523, 659, 784, 1047].forEach((f, k) => tone(f, k * 0.12, 0.35, 'triangle', 0.2)),
+  lose:  () => { tone(392, 0, 0.3, 'sine', 0.15); tone(330, 0.25, 0.45, 'sine', 0.15); },
+};
+
+function play(name, ...args) {
+  if (!soundOn) return;
+  try { SOUNDS[name](...args); } catch (e) { /* 소리를 못 내도 게임은 계속 */ }
+}
+
 // ===== 화면 =====
+// 카드가 처음 나타날 때만 애니메이션을 주려고 이미 그린 카드를 기억해 둠
+const shownBack = new Set();
+const shownFace = new Set();
+
 function cardHTML(c, opts = {}) {
   if (!c) return '';
-  if (opts.hidden) return `<div class="card back${opts.big ? ' big' : ''}"></div>`;
+  const big = opts.big ? ' big' : '';
+  if (opts.hidden) {
+    const anim = shownBack.has(c) ? '' : ' deal';
+    shownBack.add(c);
+    return `<div class="card back${big}${anim}"></div>`;
+  }
+  const anim = shownFace.has(c) ? '' : (shownBack.has(c) ? ' flip' : ' deal');
+  shownFace.add(c);
   const red = c.s === 1 || c.s === 2;
-  return `<div class="card${red ? ' red' : ''}${opts.big ? ' big' : ''}${opts.hl ? ' hl' : ''}">
-            <span>${rankText(c.r)}</span><span>${SUITS[c.s]}</span></div>`;
+  const rank = rankText(c.r);
+  const suit = SUITS[c.s];
+  const center = c.r >= 11 && c.r <= 13 ? `<div class="pip face">${rank}</div>` : `<div class="pip">${suit}</div>`;
+  return `<div class="card${red ? ' red' : ''}${big}${opts.hl ? ' hl' : ''}${anim}">
+            <div class="corner tl">${rank}<small>${suit}</small></div>
+            ${center}
+            <div class="corner br">${rank}<small>${suit}</small></div>
+          </div>`;
 }
 
 function setMessage(m) { document.getElementById('message').innerHTML = m; }
@@ -615,6 +748,11 @@ document.getElementById('btnNext').onclick = () => {
 };
 document.getElementById('raiseSlider').oninput = e =>
   document.getElementById('raiseValue').textContent = e.target.value;
+
+document.getElementById('btnSound').onclick = e => {
+  soundOn = !soundOn;
+  e.target.textContent = soundOn ? '🔊' : '🔇';
+};
 
 dealer = players.length - 1;  // 첫 판은 '나'가 딜러
 render();
