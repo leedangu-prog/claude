@@ -209,6 +209,29 @@
   .raise-box { display: flex; align-items: center; gap: 6px; font-size: 14px; }
   .raise-box input[type=range] { width: 140px; }
 
+  .timer {
+    position: relative;
+    width: 100%; max-width: 420px;
+    height: 22px; margin-top: 12px;
+    background: rgba(0,0,0,.45);
+    border-radius: 11px; overflow: hidden;
+    visibility: hidden;
+  }
+  .timer.on { visibility: visible; }
+  .timer .bar {
+    height: 100%; width: 100%;
+    background: linear-gradient(90deg, #2b8a4a, #6fe28c);
+    transition: width .25s linear;
+  }
+  .timer.warn .bar { background: linear-gradient(90deg, #b07a12, var(--gold)); }
+  .timer.danger .bar { background: linear-gradient(90deg, #8a2b2b, #ff5a5a); }
+  .timer.danger { animation: blink .5s infinite alternate; }
+  @keyframes blink { to { box-shadow: 0 0 14px rgba(255,90,90,.9); } }
+  .timer span {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: bold;
+  }
   .message {
     margin-top: 12px; min-height: 24px;
     font-size: 16px; font-weight: bold; color: var(--gold);
@@ -256,6 +279,7 @@
     </div>
   </div>
 
+  <div class="timer" id="timer"><div class="bar" id="timerBar"></div><span id="timerText"></span></div>
   <div class="message" id="message"></div>
 
   <div class="controls">
@@ -337,6 +361,8 @@ const START_CHIPS = 1000;
 const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
 const BOT_DELAY = 700;   // 컴퓨터가 생각하는 시간(ms)
+const TURN_TIME = 20;    // 내 차례 제한 시간(초)
+const WARN_TIME = 10;    // 이 시간이 남으면 경고
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const SUIT_FILES = ['spade', 'heart', 'diamond', 'club'];
@@ -519,6 +545,7 @@ function advance() {
   if (players[toAct].isHuman) {
     setMessage('당신 차례예요!');
     play('turn');
+    startTurnTimer();
     const slider = document.getElementById('raiseSlider');
     slider.value = slider.min;   // 레이즈 금액은 최소값부터
     document.getElementById('raiseValue').textContent = slider.value;
@@ -544,7 +571,48 @@ function nextStage() {
 }
 
 // action: 'fold' | 'call' | 'raise' (raiseTo = 이번 라운드 총 베팅액)
+// ===== 내 차례 타이머 =====
+let timerId = null;
+
+function stopTurnTimer() {
+  clearInterval(timerId);
+  timerId = null;
+  document.getElementById('timer').className = 'timer';
+}
+
+function startTurnTimer() {
+  stopTurnTimer();
+  const deadline = Date.now() + TURN_TIME * 1000;
+  let lastSec = TURN_TIME;
+  const timer = document.getElementById('timer');
+  const tick = () => {
+    const left = Math.max(0, (deadline - Date.now()) / 1000);
+    const sec = Math.ceil(left);
+    document.getElementById('timerBar').style.width = `${(left / TURN_TIME) * 100}%`;
+    document.getElementById('timerText').textContent = `⏱ ${sec}초`;
+    timer.className = 'timer on' + (sec <= 5 ? ' danger' : sec <= WARN_TIME ? ' warn' : '');
+
+    if (sec !== lastSec) {
+      if (sec === WARN_TIME) { setMessage(`⏰ 서두르세요! ${WARN_TIME}초 남았어요`); play('warn'); }
+      else if (sec <= 5 && sec > 0) play('tick');
+      lastSec = sec;
+    }
+    if (left <= 0) {
+      // 시간 초과: 체크할 수 있으면 체크, 아니면 폴드
+      const canCheck = currentBet - players[0].bet === 0;
+      const what = canCheck ? '체크' : '폴드';
+      play('timeout');
+      log(`⏰ 시간 초과! 자동으로 ${what}`);
+      act(0, canCheck ? 'call' : 'fold');
+      if (!handOver) setMessage(`⏰ 시간 초과! 자동으로 ${what}했어요`);
+    }
+  };
+  tick();
+  timerId = setInterval(tick, 250);
+}
+
 function act(i, action, raiseTo) {
+  if (i === 0) stopTurnTimer();
   const p = players[i];
   if (action === 'fold') {
     p.folded = true;
@@ -780,6 +848,9 @@ const SOUNDS = {
   },
   check: () => { drum(0, 0.5); tone(220, 0, 0.06, 'square', 0.15); drum(0.13, 0.5); tone(220, 0.13, 0.06, 'square', 0.15); },
   fold:  () => { noise(0, 0.3, 0.5, 900); tone(300, 0, 0.25, 'sine', 0.2, 120); },
+  warn:  () => { tone(1200, 0, 0.15, 'square', 0.25); tone(1200, 0.2, 0.15, 'square', 0.25); },  // 삐삐
+  tick:  () => tone(1600, 0, 0.06, 'square', 0.25),                                         // 똑딱
+  timeout: () => { tone(600, 0, 0.5, 'sawtooth', 0.3, 200); drum(0, 0.8); },               // 부웅
   turn:  () => { tone(880, 0, 0.3, 'sine', 0.35); tone(1320, 0.12, 0.4, 'sine', 0.3); },
   win:   () => {                                                           // 빰빠밤~ 팡파레
     drum(0, 1);
