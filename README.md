@@ -12,3 +12,7 @@
 - 폴드 / 체크·콜 / 벳·레이즈 / 올인
 - 칩이 0이 되면 탈락, 컴퓨터를 모두 탈락시키면 우승
 - 사이드 팟과 무승부(팟 나누기)도 처리돼요
+
+## 카드 그림
+
+카드 그림은 David Bellot의 [SVG-cards](https://github.com/htdebeer/SVG-cards)를 사용했어요 (LGPL-2.1, `LICENSE-cards.txt` 참고). 파일 하나로 열어도 보이도록 `index.html` 안에 그림을 넣어 두었어요.
