@@ -1,0 +1,330 @@
+<title>쿠팡 베스트 조회기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a ranked "shelf" list. Big rank numerals in a left column, product in the middle, price + actions on the right. */
+:root {
+  --bg: #f3f5f2;
+  --surface: #ffffff;
+  --ink: #18201b;
+  --muted: #5f6b63;
+  --line: #d9dfd9;
+  --accent: #0f7a5a;
+  --accent-soft: #dcefe6;
+  --gold: #b07a12;
+  --warn-bg: #fff4d6;
+  --warn-ink: #6b4a00;
+  --font-display: "Black Han Sans", "IBM Plex Sans KR", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111613; --surface: #19201c; --ink: #e7ece8; --muted: #9aa69e; --line: #2c3530;
+    --accent: #4fc79c; --accent-soft: #1d3a2f; --gold: #e2b34c; --warn-bg: #3a3017; --warn-ink: #f1d690;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111613; --surface: #19201c; --ink: #e7ece8; --muted: #9aa69e; --line: #2c3530;
+  --accent: #4fc79c; --accent-soft: #1d3a2f; --gold: #e2b34c; --warn-bg: #3a3017; --warn-ink: #f1d690;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(30px, 6vw, 44px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h1 small { display: block; font-family: var(--font-body); font-size: 14px; color: var(--muted); font-weight: 500; letter-spacing: 0; margin-top: 8px; }
+.mode { font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: var(--warn-bg); color: var(--warn-ink); white-space: nowrap; }
+.mode.live { background: var(--accent-soft); color: var(--accent); }
+.notice { background: var(--warn-bg); color: var(--warn-ink); padding: 12px 16px; border-radius: 10px; font-size: 14px; }
+.notice button { font: inherit; font-weight: 700; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+.controls { display: grid; gap: 12px; }
+.search { display: flex; gap: 8px; }
+.search input { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+button.primary { font: inherit; font-weight: 700; padding: 10px 18px; border-radius: 10px; border: 0; background: var(--accent); color: var(--surface); cursor: pointer; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.chip { font: inherit; font-size: 14px; white-space: nowrap; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.listhead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+.listhead strong { color: var(--ink); font-size: 18px; }
+ol.list { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+.item { display: grid; grid-template-columns: 56px 72px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding-block: 14px; border-bottom: 1px solid var(--line); }
+.rank { font-family: var(--font-display); font-size: 34px; line-height: 1; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+.item:nth-child(-n+3) .rank { color: var(--gold); }
+.thumb { width: 72px; height: 72px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-family: var(--font-display); font-size: 26px; overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.info { min-width: 0; display: grid; gap: 4px; }
+.name { font-weight: 500; overflow-wrap: anywhere; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+.badge.free { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+.side { display: grid; gap: 6px; justify-items: end; }
+.price { font-family: var(--font-mono); font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price small { font-family: var(--font-body); font-size: 13px; color: var(--muted); }
+.actions { display: flex; gap: 6px; }
+.btn { font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-decoration: none; white-space: nowrap; }
+.btn.seller { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+@media (max-width: 560px) {
+  .item { grid-template-columns: 40px 56px minmax(0, 1fr); }
+  .rank { font-size: 26px; }
+  .thumb { width: 56px; height: 56px; font-size: 20px; }
+  .side { grid-column: 2 / -1; justify-items: start; grid-auto-flow: column; justify-content: space-between; align-items: center; }
+}
+.empty { padding: 32px 0; color: var(--muted); text-align: center; }
+dialog { border: 0; border-radius: 14px; padding: 0; max-width: min(520px, calc(100vw - 32px)); width: 100%; background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+.dlg { padding: 22px; display: grid; gap: 14px; }
+.dlg h2 { font-family: var(--font-display); font-weight: 400; font-size: 24px; margin: 0; }
+.dlg p { margin: 0; }
+.dlg .pname { color: var(--muted); font-size: 14px; }
+.dlg ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.fields { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 14px; background: var(--bg); padding: 12px 14px; border-radius: 10px; }
+.fields dt { color: var(--muted); }
+.fields dd { margin: 0; }
+.rocket { background: var(--accent-soft); color: var(--accent); padding: 10px 12px; border-radius: 10px; font-size: 14px; }
+.dlg .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+code { font-family: var(--font-mono); font-size: 13px; background: var(--bg); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { font-family: var(--font-mono); font-size: 13px; background: var(--bg); padding: 10px 12px; border-radius: 8px; overflow-x: auto; margin: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>쿠팡 베스트 조회기<small>카테고리별로 지금 잘 팔리는 상품과 판매자 정보를 찾아봐요</small></h1>
+    <span class="mode" id="mode">예시 데이터</span>
+  </header>
+
+  <div class="notice" id="notice">지금은 <b>예시 데이터</b>를 보여주고 있어요. 진짜 쿠팡 순위를 보려면 내 컴퓨터에서 실행해야 해요. <button type="button" id="howBtn">실행 방법 보기</button></div>
+
+  <div class="controls">
+    <form class="search" id="searchForm">
+      <input id="q" type="search" placeholder="상품 검색 (예: 생수, 무선 이어폰)" aria-label="상품 검색">
+      <button class="primary" type="submit">검색</button>
+    </form>
+    <div class="chips" id="chips" role="toolbar" aria-label="카테고리"></div>
+  </div>
+
+  <section>
+    <div class="listhead"><strong id="listTitle">가전디지털 베스트</strong><span id="listMeta"></span></div>
+    <ol class="list" id="list"></ol>
+  </section>
+</div>
+
+<dialog id="sellerDlg"><div class="dlg" id="sellerBody"></div></dialog>
+<dialog id="howDlg"><div class="dlg">
+  <h2>진짜 순위 보는 법</h2>
+  <p>쿠팡은 자동 조회를 막고 있어서, 쿠팡 파트너스에서 받은 열쇠(API 키)로 내 컴퓨터에서 실행해야 해요.</p>
+  <ol>
+    <li><b>쿠팡 파트너스</b>(partners.coupang.com)에 가입하고 승인을 받아요.</li>
+    <li>파트너스 화면의 <b>추가기능 → 오픈 API</b>에서 Access Key와 Secret Key를 받아요.</li>
+    <li>이 앱 폴더에 있는 <code>config.example.json</code>을 복사해서 <code>config.json</code>으로 이름을 바꾸고 키 두 개를 적어요.</li>
+    <li>폴더에서 아래 명령을 실행하고, 브라우저로 <code>http://localhost:3000</code>을 열어요.</li>
+  </ol>
+  <pre>node server.js</pre>
+  <p class="pname">키는 내 컴퓨터 안에만 있고 밖으로 공유되지 않아요. 쿠팡 파트너스 API는 판매자 정보를 주지 않기 때문에, 판매자 정보는 상품 페이지에서 확인하는 방법을 안내해요.</p>
+  <div class="row"><button class="primary" type="button" data-close>알겠어요</button></div>
+</div></dialog>
+
+<script>
+const CATEGORIES = [
+  [1016, "가전디지털"], [1012, "식품"], [1014, "생활용품"], [1010, "뷰티"], [1001, "여성패션"],
+  [1002, "남성패션"], [1011, "출산/유아동"], [1013, "주방용품"], [1015, "홈인테리어"], [1017, "스포츠/레저"],
+  [1024, "헬스/건강식품"], [1029, "반려동물용품"], [1018, "자동차용품"], [1019, "도서/음반/DVD"],
+  [1020, "완구/취미"], [1021, "문구/오피스"], [1030, "유아동패션"], [1025, "국내여행"], [1026, "해외여행"]
+];
+
+// Example rows shown when no local server is running. Clearly labelled as examples in the UI.
+const SAMPLE = {
+  1016: [
+    ["노이즈캔슬링 무선 블루투스 이어폰", 39900, true],
+    ["고속충전 C타입 케이블 2m 3개입", 8900, true],
+    ["27인치 QHD IPS 모니터 165Hz", 259000, true],
+    ["보조배터리 20000mAh PD 고속충전", 24900, true],
+    ["무선 마우스 저소음 블루투스", 15900, false],
+    ["스마트워치 스트랩 실리콘 2개입", 6900, false],
+    ["가정용 미니 제습기 2L", 69900, true],
+    ["기계식 키보드 갈축 텐키리스", 54000, false],
+    ["USB 멀티 허브 7포트", 19800, true],
+    ["태블릿 거치대 알루미늄 각도조절", 12900, false]
+  ],
+  1012: [
+    ["생수 2L 12병", 6990, true], ["신선 계란 30구 대란", 8490, true], ["즉석밥 210g 24개", 21900, true],
+    ["견과류 하루한줌 30봉", 17900, true], ["냉동 닭가슴살 100g 20팩", 27900, false],
+    ["제주 감귤 5kg 로얄과", 19900, false], ["아메리카노 스틱커피 100T", 13900, true],
+    ["국내산 깐마늘 1kg", 9900, true], ["그릭요거트 플레인 450g 2개", 11900, true], ["컵라면 소컵 30개", 14900, true]
+  ]
+};
+
+const $ = (s) => document.querySelector(s);
+let live = false;
+let current = { type: "best", category: 1016, q: "" };
+
+function sampleFor(category) {
+  const cat = CATEGORIES.find(c => c[0] === category)[1];
+  const rows = SAMPLE[category] || Array.from({ length: 10 }, (_, i) => [cat + " 인기 상품 예시 " + (i + 1), 9900 + i * 4300, i % 3 !== 2]);
+  return rows.map(([name, price, rocket], i) => ({
+    rank: i + 1, productId: 1000 + i, productName: name, productPrice: price,
+    isRocket: rocket, isFreeShipping: rocket || i % 2 === 0, productImage: "",
+    productUrl: "https://www.coupang.com/np/search?q=" + encodeURIComponent(name)
+  }));
+}
+
+function sampleSearch(q) {
+  const all = Object.values(SAMPLE).flat();
+  const hits = all.filter(([n]) => n.includes(q));
+  const rows = (hits.length ? hits : all.slice(0, 5)).slice(0, 10);
+  return rows.map(([name, price, rocket], i) => ({
+    rank: i + 1, productId: 2000 + i, productName: name, productPrice: price,
+    isRocket: rocket, isFreeShipping: true, productImage: "",
+    productUrl: "https://www.coupang.com/np/search?q=" + encodeURIComponent(name)
+  }));
+}
+
+async function detectServer() {
+  if (!/^https?:$/.test(location.protocol)) return false;
+  try {
+    const r = await fetch("/api/health", { cache: "no-store" });
+    if (!r.ok) return false;
+    const j = await r.json();
+    return j.ok === true;
+  } catch { return false; }
+}
+
+function setMode() {
+  const m = $("#mode");
+  m.textContent = live ? "실시간 쿠팡 데이터" : "예시 데이터";
+  m.classList.toggle("live", live);
+  $("#notice").hidden = live;
+}
+
+function renderChips() {
+  const box = $("#chips");
+  box.innerHTML = "";
+  for (const [id, name] of CATEGORIES) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = name;
+    b.setAttribute("aria-pressed", String(current.type === "best" && current.category === id));
+    b.addEventListener("click", () => { current = { type: "best", category: id, q: "" }; load(); });
+    box.appendChild(b);
+  }
+}
+
+async function fetchRows() {
+  if (!live) return current.type === "best" ? sampleFor(current.category) : sampleSearch(current.q);
+  const url = current.type === "best"
+    ? "/api/best?category=" + current.category
+    : "/api/search?q=" + encodeURIComponent(current.q);
+  const r = await fetch(url);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || "불러오지 못했어요");
+  return j.items;
+}
+
+async function load() {
+  renderChips();
+  const name = current.type === "best"
+    ? CATEGORIES.find(c => c[0] === current.category)[1] + " 베스트"
+    : "‘" + current.q + "’ 검색 결과";
+  $("#listTitle").textContent = name;
+  $("#listMeta").textContent = "불러오는 중…";
+  const list = $("#list");
+  try {
+    const rows = await fetchRows();
+    list.innerHTML = "";
+    if (!rows.length) list.innerHTML = '<li class="empty">결과가 없어요. 다른 카테고리를 골라 보세요.</li>';
+    rows.forEach((p) => list.appendChild(row(p)));
+    const t = new Date();
+    $("#listMeta").textContent = (live ? "쿠팡 파트너스 기준 · " : "예시 · ") +
+      t.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) + " 조회";
+  } catch (e) {
+    list.innerHTML = "";
+    const li = document.createElement("li"); li.className = "empty";
+    li.textContent = e.message;
+    list.appendChild(li);
+    $("#listMeta").textContent = "";
+  }
+}
+
+function row(p) {
+  const li = document.createElement("li");
+  li.className = "item";
+  const rank = document.createElement("div"); rank.className = "rank"; rank.textContent = p.rank;
+  const thumb = document.createElement("div"); thumb.className = "thumb";
+  thumb.textContent = p.productName.trim().charAt(0);
+  if (p.productImage) {
+    const img = new Image(); img.alt = ""; img.loading = "lazy"; img.src = p.productImage;
+    img.onload = () => { thumb.textContent = ""; thumb.appendChild(img); };
+  }
+  const info = document.createElement("div"); info.className = "info";
+  const name = document.createElement("div"); name.className = "name"; name.textContent = p.productName;
+  const badges = document.createElement("div"); badges.className = "badges";
+  if (p.isRocket) badges.insertAdjacentHTML("beforeend", '<span class="badge">로켓배송</span>');
+  if (p.isFreeShipping) badges.insertAdjacentHTML("beforeend", '<span class="badge free">무료배송</span>');
+  info.append(name, badges);
+  const side = document.createElement("div"); side.className = "side";
+  const price = document.createElement("div"); price.className = "price";
+  price.innerHTML = Number(p.productPrice).toLocaleString("ko-KR") + "<small>원</small>";
+  const actions = document.createElement("div"); actions.className = "actions";
+  const sel = document.createElement("button"); sel.type = "button"; sel.className = "btn seller"; sel.textContent = "판매자 정보";
+  sel.addEventListener("click", () => showSeller(p));
+  const open = document.createElement("a"); open.className = "btn"; open.textContent = "상품 보기";
+  open.href = p.productUrl; open.target = "_blank"; open.rel = "noopener";
+  actions.append(sel, open);
+  side.append(price, actions);
+  li.append(rank, thumb, info, side);
+  return li;
+}
+
+function showSeller(p) {
+  const body = $("#sellerBody");
+  body.innerHTML = `
+    <h2>판매자 정보 확인하기</h2>
+    <p class="pname"></p>
+    ${p.isRocket ? '<div class="rocket"><b>로켓배송 상품</b>이에요. 로켓배송은 대부분 쿠팡이 직접 사서 파는 상품이라, 판매자가 보통 <b>쿠팡(주)</b>로 나와요.</div>' : ""}
+    <p>쿠팡은 판매자 정보를 상품 페이지에만 보여줘요. 이렇게 찾으면 돼요.</p>
+    <ol>
+      <li>아래 <b>상품 페이지 열기</b>를 눌러요.</li>
+      <li>페이지 아래쪽 <b>상품정보 → 판매자 정보</b> 칸으로 내려가요. (앱은 ‘판매자 정보’ 또는 ‘교환/반품 안내’ 근처)</li>
+      <li>아래 항목들을 확인할 수 있어요.</li>
+    </ol>
+    <dl class="fields">
+      <dt>상호명</dt><dd>판매하는 회사 이름</dd>
+      <dt>대표자</dt><dd>회사 대표 이름</dd>
+      <dt>사업자번호</dt><dd>000-00-00000 형식</dd>
+      <dt>통신판매업</dt><dd>통신판매업 신고번호</dd>
+      <dt>사업장 소재지</dt><dd>회사 주소</dd>
+      <dt>연락처</dt><dd>전화번호, 이메일</dd>
+    </dl>
+    <div class="row">
+      <button class="btn" type="button" data-close>닫기</button>
+      <a class="primary btn" style="background:var(--accent);color:var(--surface);border-color:var(--accent);font-weight:700" target="_blank" rel="noopener"></a>
+    </div>`;
+  body.querySelector(".pname").textContent = p.rank + "위 · " + p.productName;
+  const a = body.querySelector("a"); a.href = p.productUrl; a.textContent = "상품 페이지 열기";
+  $("#sellerDlg").showModal();
+}
+
+document.addEventListener("click", (e) => {
+  if (e.target.matches("[data-close]")) e.target.closest("dialog").close();
+});
+for (const d of document.querySelectorAll("dialog")) {
+  d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
+}
+$("#howBtn").addEventListener("click", () => $("#howDlg").showModal());
+$("#searchForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = $("#q").value.trim();
+  if (!q) return;
+  current = { type: "search", category: 0, q };
+  load();
+});
+
+(async () => {
+  renderChips();
+  live = await detectServer();
+  setMode();
+  load();
+})();
+</script>
