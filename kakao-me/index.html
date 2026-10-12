@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>나에게 보내기</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow column. Setup steps first (fold away once done), then a chat-like composer. */
+:root {
+  --bg: #f6f4ee; --card: #ffffff; --line: #e4e0d4; --text: #23211c; --muted: #6f6a5e;
+  --accent: #f7d23e; --accent-ink: #3a2f00; --ok: #2f8a4a; --bad: #c0392b;
+  --display: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #17160f; --card: #22211a; --line: #37352a; --text: #f1eee3; --muted: #a8a290; --ok: #6fcf8a; --bad: #ff7b6b; color-scheme: dark; }
+}
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); line-height: 1.6; padding-inline: 16px; padding-block: 28px 40px; }
+.wrap { max-width: 560px; margin: 0 auto; display: grid; gap: 16px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: 2rem; margin: 0; }
+.sub { margin: 0; color: var(--muted); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: grid; gap: 10px; }
+h2 { font-size: 1.05rem; margin: 0; display: flex; gap: 8px; align-items: center; }
+.num { width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; font-size: .8rem; background: var(--line); }
+.done .num { background: var(--ok); color: #fff; }
+ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+code { background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: .9em; word-break: break-all; }
+label { font-size: .85rem; color: var(--muted); }
+input, textarea { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; box-sizing: border-box; }
+textarea { min-height: 110px; resize: vertical; }
+button, .btn { font: inherit; font-weight: 600; border-radius: 10px; padding: 10px 16px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; text-decoration: none; display: inline-block; text-align: center; }
+.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.msg { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); }
+.msg.ok { border-color: var(--ok); color: var(--ok); }
+.msg.bad { border-color: var(--bad); color: var(--bad); }
+.count { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.history { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.history li { background: var(--accent); color: var(--accent-ink); border-radius: 14px 14px 4px 14px; padding: 8px 12px; justify-self: end; max-width: 85%; white-space: pre-wrap; word-break: break-word; }
+.history time { display: block; font-size: .7rem; opacity: .7; }
+[hidden] { display: none !important; }
+a { color: var(--text); text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>나에게 보내기</h1>
+    <p class="sub">여기에 적은 글이 카카오톡 '나와의 채팅'으로 와요.</p>
+  </header>
+
+  <div id="note" class="msg" hidden></div>
+
+  <section class="card" id="step1">
+    <h2><span class="num">1</span> 카카오 개발자 사이트에서 앱 만들기 (처음 한 번만)</h2>
+    <ol>
+      <li><a href="https://developers.kakao.com/console/app" target="_blank" rel="noopener">developers.kakao.com</a> 에 카카오 계정으로 로그인하고 <b>애플리케이션 추가</b>를 눌러요. 앱 이름은 아무거나 괜찮아요.</li>
+      <li><b>카카오 로그인</b> 메뉴에서 <b>사용함</b>으로 켜요.</li>
+      <li><b>리다이렉트 URI</b>에 아래 주소를 그대로 등록해요.<br><code id="redir">http://localhost:3000/oauth</code></li>
+      <li><b>동의항목</b> 메뉴에서 <b>카카오톡 메시지 전송</b>을 <b>선택 동의</b>로 켜요.</li>
+    </ol>
+  </section>
+
+  <section class="card" id="step2">
+    <h2><span class="num">2</span> 앱 키 넣기</h2>
+    <label for="restKey"><b>앱 키</b> 화면의 <b>REST API 키</b></label>
+    <input id="restKey" autocomplete="off" placeholder="예: 1a2b3c4d5e6f...">
+    <label for="secret">클라이언트 시크릿 (있을 때만. 모르면 비워 두세요)</label>
+    <input id="secret" autocomplete="off" placeholder="비워 둬도 돼요">
+    <div><button class="primary" id="saveKey" type="button">저장하기</button></div>
+  </section>
+
+  <section class="card" id="step3">
+    <h2><span class="num">3</span> 카카오로 로그인</h2>
+    <p class="sub" id="loginText">버튼을 누르면 카카오 화면이 열려요. '카카오톡 메시지 전송'에 동의해 주세요.</p>
+    <div class="row">
+      <a class="btn primary" id="loginBtn" href="/login">카카오로 로그인</a>
+      <button id="logoutBtn" type="button" hidden>로그아웃</button>
+    </div>
+  </section>
+
+  <section class="card" id="compose">
+    <h2>보낼 내용</h2>
+    <textarea id="text" maxlength="200" placeholder="예: 내일 아침 9시 회의 자료 챙기기"></textarea>
+    <div class="row">
+      <span class="count" id="count">0 / 200</span>
+      <button class="primary" id="sendBtn" type="button">나에게 보내기</button>
+    </div>
+    <ul class="history" id="history"></ul>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function note(text, kind) { const n = $("note"); n.textContent = text; n.className = "msg " + (kind || ""); n.hidden = !text; }
+
+async function refresh() {
+  const s = await (await fetch("/api/status")).json();
+  $("redir").textContent = s.redirectUri;
+  $("step1").classList.toggle("done", s.hasKey);
+  $("step2").classList.toggle("done", s.hasKey);
+  $("step3").classList.toggle("done", s.loggedIn);
+  $("loginText").textContent = s.loggedIn ? "로그인돼 있어요. 다시 로그인할 필요 없어요." : "버튼을 누르면 카카오 화면이 열려요. '카카오톡 메시지 전송'에 동의해 주세요.";
+  $("logoutBtn").hidden = !s.loggedIn;
+  if (s.hasKey) $("restKey").placeholder = "저장돼 있어요 (바꿀 때만 다시 넣으세요)";
+  $("compose").style.opacity = s.loggedIn ? 1 : .55;
+}
+
+$("saveKey").onclick = async () => {
+  const restKey = $("restKey").value.trim();
+  if (!restKey) return note("REST API 키를 넣어 주세요.", "bad");
+  await fetch("/api/config", { method: "POST", body: JSON.stringify({ restKey, secret: $("secret").value.trim() }) });
+  $("restKey").value = ""; $("secret").value = "";
+  note("저장했어요. 이제 3번 '카카오로 로그인'을 눌러 주세요.", "ok");
+  refresh();
+};
+$("logoutBtn").onclick = async () => { await fetch("/api/logout", { method: "POST" }); note("로그아웃했어요.", "ok"); refresh(); };
+
+$("text").oninput = () => $("count").textContent = $("text").value.length + " / 200";
+
+function sentList() { try { return JSON.parse(localStorage.getItem("sentHistory") || "[]"); } catch (e) { return []; } }
+function drawHistory() {
+  $("history").innerHTML = "";
+  sentList().slice(-5).forEach(h => {
+    const li = document.createElement("li"); li.textContent = h.text;
+    const t = document.createElement("time"); t.textContent = new Date(h.at).toLocaleString("ko-KR"); li.appendChild(t);
+    $("history").appendChild(li);
+  });
+}
+
+$("sendBtn").onclick = async () => {
+  const text = $("text").value.trim();
+  if (!text) return note("보낼 내용을 적어 주세요.", "bad");
+  $("sendBtn").disabled = true; $("sendBtn").textContent = "보내는 중...";
+  try {
+    const r = await fetch("/api/send", { method: "POST", body: JSON.stringify({ text }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    note("보냈어요! 카카오톡 '나와의 채팅'을 확인해 보세요.", "ok");
+    const h = sentList(); h.push({ text, at: Date.now() });
+    try { localStorage.setItem("sentHistory", JSON.stringify(h.slice(-20))); } catch (e) {}
+    $("text").value = ""; $("count").textContent = "0 / 200"; drawHistory();
+  } catch (e) { note(e.message, "bad"); }
+  $("sendBtn").disabled = false; $("sendBtn").textContent = "나에게 보내기";
+};
+$("text").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("sendBtn").click(); });
+
+const m = new URLSearchParams(location.search).get("msg");
+if (m) { note(m, m.includes("성공") ? "ok" : "bad"); window.history.replaceState(null, "", "/"); }
+drawHistory(); refresh();
+</script>
+</body>
+</html>
