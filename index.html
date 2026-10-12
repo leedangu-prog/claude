@@ -33,7 +33,6 @@
     width: 100%;
     max-width: 820px;
     aspect-ratio: 16 / 11;
-    min-height: 420px;
     background: radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 100%);
     border: 14px solid var(--wood);
     border-radius: 200px;
@@ -207,7 +206,7 @@
   }
 
   /* 7인 자리: 나(아래 가운데)부터 시계 방향 */
-  .seat-0 { top: 89%; left: 50%; }
+  .seat-0 { top: 84%; left: 50%; }
   .seat-1 { top: 73%; left: 12%; }
   .seat-2 { top: 33%; left: 8%; }
   .seat-3 { top: 12%; left: 30%; }
@@ -237,10 +236,14 @@
   .raise-box { display: flex; align-items: center; gap: 6px; font-size: 14px; }
   .raise-box input[type=range] { width: 140px; }
 
+  .game {
+    width: 100%; max-width: 820px;
+    display: flex; flex-direction: column; align-items: center;
+  }
   .timer {
     position: relative;
     width: 100%; max-width: 420px;
-    height: 22px; margin-top: 12px;
+    height: 22px; margin-top: 22px;
     background: rgba(0,0,0,.45);
     border-radius: 11px; overflow: hidden;
     visibility: hidden;
@@ -301,8 +304,11 @@
 </style>
 </head>
 <body>
-  <h1>♠ 텍사스 홀덤 ♥</h1>
   <button class="sound-btn" id="btnSound" title="소리 켜기/끄기">🔊</button>
+
+  <!-- 제목부터 버튼까지: 화면 높이에 맞춰 통째로 줄어드는 부분 -->
+  <div class="game" id="game">
+  <h1>♠ 텍사스 홀덤 ♥</h1>
 
   <div class="table" id="table">
     <div class="banner" id="banner"></div>
@@ -326,6 +332,7 @@
     <button id="btnRaise">레이즈</button>
     <button id="btnAllIn">올인</button>
     <button id="btnNext">다음 판</button>
+  </div>
   </div>
 
   <div class="advisor" id="advisor"></div>
@@ -1132,6 +1139,17 @@ document.getElementById('btnSound').onclick = e => {
   soundOn = !soundOn;
   e.target.textContent = soundOn ? '🔊' : '🔇';
 };
+
+// 화면 높이가 낮으면(예: 노트북 전체화면) 게임 영역을 통째로 줄여서
+// 아래쪽 버튼까지 스크롤 없이 한 화면에 보이게 함
+function fitToScreen() {
+  const game = document.getElementById('game');
+  game.style.zoom = 1;
+  const needed = game.offsetHeight + 48;   // 48 = 위아래 여백
+  game.style.zoom = Math.max(0.5, Math.min(1, window.innerHeight / needed));
+}
+window.addEventListener('resize', fitToScreen);
+fitToScreen();
 
 dealer = players.length - 1;  // 첫 판은 '나'가 딜러
 render();
